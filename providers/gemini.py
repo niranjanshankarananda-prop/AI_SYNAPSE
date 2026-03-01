@@ -89,7 +89,7 @@ class GeminiProvider(Provider):
         
         return system_instruction, contents
     
-    async def check_available(self) -> bool:
+    async def _check_available(self) -> bool:
         """Check if Gemini API is accessible."""
         if not self.api_key:
             self._set_error("GEMINI_API_KEY not set")

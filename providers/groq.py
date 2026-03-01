@@ -60,7 +60,7 @@ class GroqProvider(Provider):
             )
         return self.client
 
-    async def check_available(self) -> bool:
+    async def _check_available(self) -> bool:
         if not self.api_key:
             self._set_error("GROQ_API_KEY not set")
             return False

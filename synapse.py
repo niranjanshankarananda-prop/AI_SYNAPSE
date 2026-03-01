@@ -269,12 +269,19 @@ async def process_ai_message(
         print(f"  Skills: {', '.join(skill_names)}")
 
     # 4. Build System Prompt
+    import os
+    cwd = os.getcwd()
     system_parts = [
         "You are AI_SYNAPSE, an intelligent coding assistant. "
-        "You can read files, edit code, run commands, and search for files. "
-        "Use the provided tools to help the user with their coding tasks. "
-        "Always read files before editing them. Think step by step. "
-        "Use relative file paths (e.g., 'requirements.txt', 'src/main.py') — not placeholder paths."
+        "You have tools to read files, edit code, run bash commands, and search for files.\n\n"
+        "RULES:\n"
+        "1. ALWAYS use tools to verify information. NEVER guess or assume file contents.\n"
+        "2. When asked about files, READ them first with the read tool before answering.\n"
+        "3. Use relative file paths (e.g., 'requirements.txt', 'src/main.py').\n"
+        "4. Always read a file before editing it.\n"
+        "5. Think step by step. Break complex tasks into tool calls.\n"
+        "6. If a tool returns an error, try to fix the issue and retry.\n\n"
+        f"Current working directory: {cwd}"
     ]
     if carl_result.rules:
         system_parts.append(carl.format_rules_for_prompt(carl_result.rules))
@@ -304,8 +311,21 @@ async def process_ai_message(
 
     print()
 
+    provider_shown = False
     async for event in agent.run(carl_result.modified_message):
         if event.type == ResponseType.TEXT:
+            # Show provider info on first text response
+            if not provider_shown:
+                provider_name = router.get_current_provider_name()
+                if provider_name:
+                    model = router.current_provider.get_model() if router.current_provider else ""
+                    # Avoid redundant prefix (e.g., "kilo/kilo/..." -> "kilo/...")
+                    if model.startswith(f"{provider_name}/"):
+                        display = model
+                    else:
+                        display = f"{provider_name}/{model}"
+                    print(f"  [{display}]")
+                provider_shown = True
             print(event.text, end="", flush=True)
 
         elif event.type == ResponseType.TOOL_CALL:

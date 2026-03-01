@@ -193,9 +193,35 @@ class ConfigManager:
                         {"name": "kilo/qwen/qwen3-235b-a22b-thinking-2507"}
                     ]
                 },
-                "groq": {
+                "kimi": {
                     "enabled": True,
                     "priority": 2,
+                    "api_key": None,  # From env: KIMI_API_KEY
+                    "models": [
+                        {"name": "kimi-k2.5", "default": True}
+                    ]
+                },
+                "ollama": {
+                    "enabled": True,
+                    "priority": 3,
+                    "base_url": "http://localhost:11434",
+                    "models": [
+                        {"name": "qwen2.5-coder:7b", "default": True}
+                    ]
+                },
+                "openrouter": {
+                    "enabled": True,
+                    "priority": 4,
+                    "api_key": None,  # From env: OPENROUTER_API_KEY
+                    "models": [
+                        {"name": "qwen/qwen3-32b:free", "default": True},
+                        {"name": "google/gemma-3-27b-it:free"},
+                        {"name": "mistralai/mistral-small-3.1-24b-instruct:free"}
+                    ]
+                },
+                "groq": {
+                    "enabled": True,
+                    "priority": 5,
                     "api_key": None,  # From env: GROQ_API_KEY
                     "models": [
                         {"name": "llama-3.3-70b-versatile", "default": True},
@@ -204,36 +230,10 @@ class ConfigManager:
                 },
                 "gemini": {
                     "enabled": True,
-                    "priority": 3,
+                    "priority": 6,
                     "api_key": None,  # From env: GEMINI_API_KEY
                     "models": [
                         {"name": "gemini-2.5-flash", "default": True}
-                    ]
-                },
-                "kimi": {
-                    "enabled": True,
-                    "priority": 100,  # Paid backup
-                    "api_key": None,  # From env: KIMI_API_KEY
-                    "models": [
-                        {"name": "kimi-k2.5", "default": True}
-                    ]
-                },
-                "openrouter": {
-                    "enabled": True,
-                    "priority": 4,
-                    "api_key": None,
-                    "models": [
-                        {"name": "qwen/qwen3-32b:free", "default": True},
-                        {"name": "google/gemma-3-27b-it:free"},
-                        {"name": "mistralai/mistral-small-3.1-24b-instruct:free"}
-                    ]
-                },
-                "ollama": {
-                    "enabled": True,
-                    "priority": 5,
-                    "base_url": "http://localhost:11434",
-                    "models": [
-                        {"name": "qwen2.5-coder:7b", "default": True}
                     ]
                 },
             },

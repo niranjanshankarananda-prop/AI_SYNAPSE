@@ -61,7 +61,7 @@ class KimiProvider(Provider):
             )
         return self.client
     
-    async def check_available(self) -> bool:
+    async def _check_available(self) -> bool:
         """Check if Kimi API is accessible."""
         if not self.api_key:
             self._set_error("KIMI_API_KEY not set")

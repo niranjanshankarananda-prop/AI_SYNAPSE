@@ -10,6 +10,7 @@ from typing import AsyncIterator, Dict, Optional, List
 from dataclasses import dataclass, field
 from enum import Enum
 import logging
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -51,12 +52,18 @@ class Provider(ABC):
                 print(chunk, end="")
     """
     
+    # Cache availability checks for this many seconds
+    AVAILABILITY_CACHE_TTL = 60
+
     def __init__(self, config: ProviderConfig):
         self.config = config
         self.name = config.name
         self.priority = config.priority
         self._status = ProviderStatus.UNAVAILABLE
         self._last_error: Optional[str] = None
+        self._availability_cache: Optional[bool] = None
+        self._availability_cache_time: float = 0
+        self._logged_errors: set = set()
     
     @abstractmethod
     async def complete(
@@ -89,13 +96,29 @@ class Provider(ABC):
         raise NotImplementedError
         yield  # noqa: makes this an async generator for type checking
 
-    @abstractmethod
     async def check_available(self) -> bool:
         """
-        Check if provider is available and ready to use.
-        
-        Returns:
-            True if provider can be used, False otherwise
+        Check if provider is available (with caching).
+
+        Returns cached result within TTL window to avoid
+        redundant network calls on every agent loop iteration.
+        """
+        now = time.monotonic()
+        if (self._availability_cache is not None
+                and now - self._availability_cache_time < self.AVAILABILITY_CACHE_TTL):
+            return self._availability_cache
+
+        result = await self._check_available()
+        self._availability_cache = result
+        self._availability_cache_time = now
+        return result
+
+    @abstractmethod
+    async def _check_available(self) -> bool:
+        """
+        Actually check if provider is available and ready to use.
+
+        Subclasses implement this. Called by check_available() when cache expires.
         """
         pass
     
@@ -143,10 +166,12 @@ class Provider(ABC):
         return self._last_error
     
     def _set_error(self, error: str):
-        """Set error state."""
+        """Set error state. Only logs each unique error once."""
         self._status = ProviderStatus.ERROR
         self._last_error = error
-        logger.warning(f"{self.name} error: {error}")
+        if error not in self._logged_errors:
+            self._logged_errors.add(error)
+            logger.warning(f"{self.name} error: {error}")
     
     def _set_available(self):
         """Set available state."""

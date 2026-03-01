@@ -54,7 +54,7 @@ class KiloProvider(Provider):
         """Default model for Kilo."""
         return "kilo/moonshotai/kimi-k2.5:free"
     
-    async def check_available(self) -> bool:
+    async def _check_available(self) -> bool:
         """
         Check if Kilo CLI is installed and working.
         
@@ -183,16 +183,22 @@ class KiloProvider(Provider):
         except Exception as e:
             raise ProviderError(f"Kilo error: {e}")
 
-    TOOL_INSTRUCTION_TEMPLATE = """You have access to these tools. When you need to use a tool, output EXACTLY this format (one per line):
+    TOOL_INSTRUCTION_TEMPLATE = """You are a coding assistant with access to tools. You MUST use tools to answer questions about files and code. NEVER guess or assume — always verify with tools first.
+
+When you need to use a tool, output EXACTLY this format:
 
 <tool_call>{{"name": "tool_name", "arguments": {{"arg1": "value1"}}}}</tool_call>
 
-After ALL tool results come back, continue your response.
+After the tool result comes back, continue your response based on the actual result.
 
 Available tools:
 {tool_descriptions}
 
-IMPORTANT: Output tool calls ONE AT A TIME. Wait for results before continuing. If you don't need a tool, just respond normally with text."""
+RULES:
+- When asked about file contents, ALWAYS use the read tool first.
+- When asked to find files, ALWAYS use the glob tool first.
+- Output ONE tool call at a time. Wait for results before continuing.
+- Base your answer ONLY on tool results, never on assumptions."""
 
     async def complete_with_tools(
         self,
@@ -294,7 +300,7 @@ class KiloStreamProvider(Provider):
     def default_model(self) -> str:
         return "kilo/moonshotai/kimi-k2.5:free"
     
-    async def check_available(self) -> bool:
+    async def _check_available(self) -> bool:
         """Check if Kilo server is running."""
         # TODO: Implement when Kilo exposes server API
         return False

@@ -233,10 +233,11 @@ class ProviderRouter:
         self.stats.total_requests += 1
         last_error = None
 
-        # Sort providers: function-calling-capable first
+        # Use priority order — all providers implement complete_with_tools
+        # (either native FC or prompt-based parsing)
         sorted_providers = sorted(
             self.providers,
-            key=lambda p: (0 if p.supports_function_calling else 1, p.priority)
+            key=lambda p: p.priority
         )
 
         for provider in sorted_providers:

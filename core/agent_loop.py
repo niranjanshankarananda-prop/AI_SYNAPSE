@@ -149,6 +149,11 @@ class AgentLoop:
                         }
                     )
 
+                # Auto-compact if context is getting full
+                if self.conversation.get_context_usage() > 0.75:
+                    summary = self.conversation.compact()
+                    logger.info(f"Auto-compacted conversation: {summary}")
+
                 # Continue loop — send tool results back to AI
                 continue
 

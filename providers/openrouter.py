@@ -68,7 +68,7 @@ class OpenRouterProvider(Provider):
             )
         return self.client
 
-    async def check_available(self) -> bool:
+    async def _check_available(self) -> bool:
         """Check if OpenRouter API is accessible."""
         if not self.api_key:
             self._set_error("OPENROUTER_API_KEY not set")

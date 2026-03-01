@@ -58,7 +58,7 @@ class OllamaProvider(Provider):
             )
         return self.client
 
-    async def check_available(self) -> bool:
+    async def _check_available(self) -> bool:
         """Check if Ollama is running locally."""
         try:
             client = await self._get_client()
@@ -167,7 +167,7 @@ class OllamaProvider(Provider):
         payload = {
             "model": model,
             "messages": fixed_messages,
-            "stream": False,
+            "stream": True,
             "tools": tools,
             "options": {"temperature": temperature}
         }
@@ -175,17 +175,42 @@ class OllamaProvider(Provider):
             payload["options"]["num_predict"] = max_tokens
 
         try:
-            response = await client.post("/api/chat", json=payload)
+            # Collect full response first, then decide if it's text or tool call.
+            # We can't stream text and also detect text-based tool calls,
+            # so we buffer everything and yield at the end.
+            full_content = ""
+            tool_calls_data = []
 
-            if response.status_code != 200:
-                raise ServiceUnavailableError(f"Ollama error: {response.text}")
+            async with client.stream("POST", "/api/chat", json=payload) as response:
+                if response.status_code != 200:
+                    error_text = await response.aread()
+                    raise ServiceUnavailableError(f"Ollama error: {error_text.decode()}")
 
-            data = response.json()
-            message = data.get("message", {})
+                async for line in response.aiter_lines():
+                    if not line.strip():
+                        continue
+                    try:
+                        chunk = json.loads(line)
+                        msg = chunk.get("message", {})
 
-            if message.get("tool_calls"):
+                        # Collect structured tool calls if present
+                        if msg.get("tool_calls"):
+                            tool_calls_data.extend(msg["tool_calls"])
+
+                        # Buffer text content
+                        content = msg.get("content", "")
+                        if content:
+                            full_content += content
+
+                        if chunk.get("done"):
+                            break
+                    except json.JSONDecodeError:
+                        continue
+
+            # 1. If we got structured tool calls, yield them
+            if tool_calls_data:
                 tool_calls = []
-                for tc in message["tool_calls"]:
+                for tc in tool_calls_data:
                     func = tc.get("function", {})
                     tool_calls.append(ToolCall(
                         name=func.get("name", ""),
@@ -196,21 +221,23 @@ class OllamaProvider(Provider):
                     tool_calls=tool_calls,
                     finish_reason="tool_calls"
                 )
-            else:
-                content = message.get("content", "")
-                # Some Ollama models return tool calls as JSON text
-                # instead of structured tool_calls — try to parse them
-                if content:
-                    parsed_tc = self._try_parse_text_tool_call(content)
-                    if parsed_tc:
-                        yield AgentResponse(
-                            type=ResponseType.TOOL_CALL,
-                            tool_calls=parsed_tc,
-                            finish_reason="tool_calls"
-                        )
-                        return
-                    yield AgentResponse(type=ResponseType.TEXT, text=content)
-                yield AgentResponse(type=ResponseType.DONE, finish_reason="stop")
+                return
+
+            # 2. Try parsing text-based tool calls (for models without native FC)
+            if full_content:
+                parsed_tc = self._try_parse_text_tool_call(full_content)
+                if parsed_tc:
+                    yield AgentResponse(
+                        type=ResponseType.TOOL_CALL,
+                        tool_calls=parsed_tc,
+                        finish_reason="tool_calls"
+                    )
+                    return
+
+            # 3. It's just text — yield it all at once
+            if full_content:
+                yield AgentResponse(type=ResponseType.TEXT, text=full_content)
+            yield AgentResponse(type=ResponseType.DONE, finish_reason="stop")
 
         except httpx.ConnectError:
             raise ServiceUnavailableError("Ollama not running")
