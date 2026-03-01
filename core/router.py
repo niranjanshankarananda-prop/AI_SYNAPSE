@@ -8,10 +8,20 @@ import logging
 from typing import AsyncIterator, List, Optional
 from dataclasses import dataclass
 
+from tenacity import (
+    retry,
+    stop_after_attempt,
+    wait_exponential,
+    retry_if_exception_type,
+)
+
 from providers.base import (
-    Provider, 
-    ProviderConfig, 
+    Provider,
+    ProviderConfig,
     ProviderError,
+    RateLimitError,
+    ServiceUnavailableError,
+    AuthenticationError,
     AllProvidersFailed
 )
 from core.config import SynapseConfig, get_config
@@ -151,6 +161,33 @@ class ProviderRouter:
             logger.warning(f"Provider {name} not available: {e}")
             return None
     
+    @staticmethod
+    def _make_retry():
+        """Create a tenacity retry decorator for transient provider errors."""
+        return retry(
+            retry=retry_if_exception_type((ServiceUnavailableError, RateLimitError)),
+            stop=stop_after_attempt(3),  # 1 initial + 2 retries
+            wait=wait_exponential(multiplier=1, min=1, max=4),
+            reraise=True,
+        )
+
+    async def _try_provider_with_retry(self, provider: Provider, coro_fn, *args, **kwargs) -> list:
+        """
+        Call an async-generator provider method with retry.
+
+        Collects all yielded items into a list. On retryable errors
+        (ServiceUnavailableError, RateLimitError) retries up to 2 times
+        with exponential backoff. Non-retryable errors propagate immediately.
+        """
+        @self._make_retry()
+        async def _inner():
+            results = []
+            async for item in coro_fn(*args, **kwargs):
+                results.append(item)
+            return results
+
+        return await _inner()
+
     async def complete(
         self,
         messages: list[dict],
@@ -160,53 +197,61 @@ class ProviderRouter:
     ) -> AsyncIterator[str]:
         """
         Generate completion, trying providers until one succeeds.
-        
+
         Args:
             messages: List of message dicts with 'role' and 'content'
             model: Model to use (None = provider default)
             stream: Whether to stream response
             **kwargs: Additional arguments passed to provider
-            
+
         Yields:
             Text chunks from the successful provider
-            
+
         Raises:
             AllProvidersFailed: If no provider succeeds
         """
         if not self._initialized:
             await self.initialize()
-        
+
         self.stats.total_requests += 1
         last_error = None
-        
+
         for provider in self.providers:
             try:
                 # Check if provider is available
                 if not await provider.check_available():
                     logger.debug(f"Provider {provider.name} is not available, skipping")
                     continue
-                
+
                 logger.info(f"Trying provider: {provider.name}")
                 self.current_provider = provider
-                
-                # Attempt completion
-                async for chunk in provider.complete(messages, model, stream, **kwargs):
+
+                # Attempt completion with retry on transient errors
+                chunks = await self._try_provider_with_retry(
+                    provider, provider.complete, messages, model, stream, **kwargs
+                )
+                for chunk in chunks:
                     yield chunk
-                
+
                 # Success!
                 self.stats.successful_requests += 1
                 return
-                
+
+            except (AuthenticationError, ProviderError) as e:
+                logger.warning(f"Provider {provider.name} failed: {e}")
+                self.stats.fallback_count += 1
+                last_error = e
+                continue
             except Exception as e:
                 logger.warning(f"Provider {provider.name} failed: {e}")
                 self.stats.fallback_count += 1
                 last_error = e
                 continue
-        
+
         # All providers failed
         self.stats.failed_requests += 1
         self.current_provider = None
-        
+
         error_msg = f"All providers failed. Last error: {last_error}"
         logger.error(error_msg)
         raise AllProvidersFailed(error_msg)
@@ -225,8 +270,6 @@ class ProviderRouter:
         Prefers providers that support native function calling.
         Falls back to prompt-based for providers that don't.
         """
-        from core.agent_response import AgentResponse, ResponseType
-
         if not self._initialized:
             await self.initialize()
 
@@ -249,14 +292,22 @@ class ProviderRouter:
                 logger.info(f"Trying provider with tools: {provider.name}")
                 self.current_provider = provider
 
-                async for response in provider.complete_with_tools(
+                # Attempt with retry on transient errors
+                responses = await self._try_provider_with_retry(
+                    provider, provider.complete_with_tools,
                     messages, tools, model, stream, **kwargs
-                ):
+                )
+                for response in responses:
                     yield response
 
                 self.stats.successful_requests += 1
                 return
 
+            except (AuthenticationError, ProviderError) as e:
+                logger.warning(f"Provider {provider.name} failed: {e}")
+                self.stats.fallback_count += 1
+                last_error = e
+                continue
             except Exception as e:
                 logger.warning(f"Provider {provider.name} failed: {e}")
                 self.stats.fallback_count += 1

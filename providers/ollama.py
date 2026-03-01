@@ -175,11 +175,11 @@ class OllamaProvider(Provider):
             payload["options"]["num_predict"] = max_tokens
 
         try:
-            # Collect full response first, then decide if it's text or tool call.
-            # We can't stream text and also detect text-based tool calls,
-            # so we buffer everything and yield at the end.
+            # Stream text immediately. If we see tool_calls in any chunk,
+            # switch to buffering mode and yield a tool call at the end.
             full_content = ""
             tool_calls_data = []
+            streaming_text = True  # Start optimistic — stream text
 
             async with client.stream("POST", "/api/chat", json=payload) as response:
                 if response.status_code != 200:
@@ -193,14 +193,17 @@ class OllamaProvider(Provider):
                         chunk = json.loads(line)
                         msg = chunk.get("message", {})
 
-                        # Collect structured tool calls if present
+                        # If structured tool calls appear, stop streaming text
                         if msg.get("tool_calls"):
                             tool_calls_data.extend(msg["tool_calls"])
+                            streaming_text = False
 
-                        # Buffer text content
                         content = msg.get("content", "")
                         if content:
                             full_content += content
+                            # Stream text chunks immediately if no tool calls seen
+                            if streaming_text:
+                                yield AgentResponse(type=ResponseType.TEXT, text=content)
 
                         if chunk.get("done"):
                             break
@@ -234,9 +237,7 @@ class OllamaProvider(Provider):
                     )
                     return
 
-            # 3. It's just text — yield it all at once
-            if full_content:
-                yield AgentResponse(type=ResponseType.TEXT, text=full_content)
+            # 3. Text was already streamed — just signal done
             yield AgentResponse(type=ResponseType.DONE, finish_reason="stop")
 
         except httpx.ConnectError:

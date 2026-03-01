@@ -5,6 +5,7 @@ The core agentic loop that makes AI_SYNAPSE a real coding assistant.
 Sends messages to AI, executes tool calls, sends results back, repeats.
 """
 
+import asyncio
 import json
 import logging
 from typing import AsyncIterator, Optional
@@ -129,17 +130,18 @@ class AgentLoop:
                     metadata={"tool_calls": tool_calls_data}
                 )
 
-                # Execute each tool call
-                for tc in tool_calls:
-                    result = await self._execute_tool(tc)
+                # Execute all tool calls in parallel
+                results = await asyncio.gather(
+                    *[self._execute_tool(tc) for tc in tool_calls]
+                )
 
-                    # Yield tool result for display
+                # Yield results and add to conversation in order
+                for tc, result in zip(tool_calls, results):
                     yield AgentResponse(
                         type=ResponseType.TOOL_RESULT,
                         tool_result=result
                     )
 
-                    # Add tool result to conversation
                     self.conversation.add_message(
                         "tool",
                         result.output,
