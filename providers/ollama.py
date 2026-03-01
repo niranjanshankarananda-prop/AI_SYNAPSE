@@ -43,7 +43,7 @@ class OllamaProvider(Provider):
 
     @property
     def default_model(self) -> str:
-        return "qwen2.5-coder:32b"
+        return "qwen2.5-coder:7b"
 
     @property
     def supports_function_calling(self) -> bool:
@@ -177,9 +177,52 @@ class OllamaProvider(Provider):
                 )
             else:
                 content = message.get("content", "")
+                # Some Ollama models return tool calls as JSON text
+                # instead of structured tool_calls — try to parse them
                 if content:
+                    parsed_tc = self._try_parse_text_tool_call(content)
+                    if parsed_tc:
+                        yield AgentResponse(
+                            type=ResponseType.TOOL_CALL,
+                            tool_calls=parsed_tc,
+                            finish_reason="tool_calls"
+                        )
+                        return
                     yield AgentResponse(type=ResponseType.TEXT, text=content)
                 yield AgentResponse(type=ResponseType.DONE, finish_reason="stop")
 
         except httpx.ConnectError:
             raise ServiceUnavailableError("Ollama not running")
+
+    @staticmethod
+    def _try_parse_text_tool_call(content: str) -> list:
+        """Try to parse a tool call from text content (for models without native FC)."""
+        import re
+        content = content.strip()
+        # Try direct JSON: {"name": "...", "arguments": {...}}
+        try:
+            parsed = json.loads(content)
+            if isinstance(parsed, dict) and "name" in parsed:
+                return [ToolCall(
+                    name=parsed["name"],
+                    arguments=parsed.get("arguments", {})
+                )]
+        except json.JSONDecodeError:
+            pass
+        # Try <tool_call> tags (same as Kilo)
+        pattern = r'<tool_call>\s*(\{.+?\})\s*</tool_call>'
+        matches = re.findall(pattern, content, re.DOTALL)
+        if matches:
+            results = []
+            for m in matches:
+                try:
+                    parsed = json.loads(m)
+                    results.append(ToolCall(
+                        name=parsed.get("name", ""),
+                        arguments=parsed.get("arguments", {})
+                    ))
+                except json.JSONDecodeError:
+                    continue
+            if results:
+                return results
+        return []

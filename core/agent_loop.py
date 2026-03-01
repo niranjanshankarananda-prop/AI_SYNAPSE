@@ -5,6 +5,7 @@ The core agentic loop that makes AI_SYNAPSE a real coding assistant.
 Sends messages to AI, executes tool calls, sends results back, repeats.
 """
 
+import json
 import logging
 from typing import AsyncIterator, Optional
 from rich.console import Console
@@ -117,7 +118,7 @@ class AgentLoop:
                         "type": "function",
                         "function": {
                             "name": tc.name,
-                            "arguments": str(tc.arguments)
+                            "arguments": json.dumps(tc.arguments)
                         }
                     }
                     for tc in tool_calls
@@ -179,7 +180,7 @@ class AgentLoop:
             ToolResult with output or error
         """
         tool_name = tool_call.name
-        tool_args = tool_call.arguments
+        tool_args = {k: v for k, v in tool_call.arguments.items() if v is not None}
 
         logger.info(f"Executing tool: {tool_name}({tool_args})")
 

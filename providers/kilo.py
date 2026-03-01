@@ -246,7 +246,7 @@ IMPORTANT: Output tool calls ONE AT A TIME. Wait for results before continuing. 
             response_text += chunk
 
         # Parse tool calls from response
-        tool_call_pattern = r'<tool_call>\s*(\{[^}]+\})\s*</tool_call>'
+        tool_call_pattern = r'<tool_call>\s*(.*?)\s*</tool_call>'
         matches = re.findall(tool_call_pattern, response_text)
 
         if matches:

@@ -62,7 +62,9 @@ class ReadTool(Tool):
             with open(path, 'r') as f:
                 lines = f.readlines()
             
-            # Apply offset and limit
+            # Apply offset and limit (handle None from AI tool calls)
+            offset = offset if offset is not None else 1
+            limit = limit if limit is not None else None
             start = max(0, offset - 1)
             end = len(lines)
             if limit:

@@ -233,7 +233,7 @@ class ConfigManager:
                     "priority": 5,
                     "base_url": "http://localhost:11434",
                     "models": [
-                        {"name": "qwen2.5-coder:32b", "default": True}
+                        {"name": "qwen2.5-coder:7b", "default": True}
                     ]
                 },
             },
