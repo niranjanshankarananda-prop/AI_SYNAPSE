@@ -113,26 +113,44 @@ class KiloProvider(Provider):
         by yielding words as they're received.
         """
         model = self.get_model(model)
-        
-        # Extract the last user message for Kilo
-        # Kilo's simple CLI interface takes a single message
-        last_message = messages[-1]["content"] if messages else ""
-        
-        # Build system context from previous messages
+
+        # Build full prompt from all messages
+        # Kilo CLI takes a single string, so we flatten the conversation
         system_context = ""
-        for msg in messages[:-1]:
+        for msg in messages:
             if msg["role"] == "system":
                 system_context += f"{msg['content']}\n\n"
             elif msg["role"] == "assistant":
-                system_context += f"Assistant: {msg['content']}\n\n"
+                content = msg.get("content", "")
+                # Include tool calls made by the assistant
+                if msg.get("tool_calls"):
+                    for tc in msg["tool_calls"]:
+                        func = tc.get("function", tc) if isinstance(tc, dict) else tc
+                        name = func.get("name", "")
+                        args = func.get("arguments", {})
+                        if isinstance(args, str):
+                            system_context += f"Assistant called tool: {name}({args})\n"
+                        else:
+                            system_context += f"Assistant called tool: {name}({json.dumps(args)})\n"
+                    system_context += "\n"
+                elif content:
+                    system_context += f"Assistant: {content}\n\n"
+            elif msg["role"] == "tool":
+                tool_name = msg.get("name", "tool")
+                system_context += f"Tool result ({tool_name}): {msg['content']}\n\n"
             elif msg["role"] == "user":
                 system_context += f"User: {msg['content']}\n\n"
-        
-        # Combine system context with last message
+
+        # Build final prompt
+        # If last message was a tool result, ask the model to continue
+        last_role = messages[-1]["role"] if messages else "user"
         if system_context:
-            full_prompt = f"{system_context}\nUser: {last_message}\n\nAssistant:"
+            if last_role == "tool":
+                full_prompt = f"{system_context}\nBased on the tool results above, provide your answer to the user.\n\nAssistant:"
+            else:
+                full_prompt = f"{system_context}\nAssistant:"
         else:
-            full_prompt = last_message
+            full_prompt = messages[-1].get("content", "") if messages else ""
         
         logger.debug(f"Kilo prompt: {full_prompt[:100]}...")
         
