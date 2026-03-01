@@ -1,377 +1,365 @@
-# AI_SYNAPSE — Universal AI CLI
+# AI_SYNAPSE — Universal AI Coding Assistant
 
-> Your intelligent bridge to AI — adaptive, persistent, and future-proof.
+> An agentic coding assistant that reads files, edits code, and runs commands — powered by free AI models with automatic provider fallback.
 
-**⚡ Status:** v0.3.0 Production Ready
+**Version:** 0.4.0 | **Status:** Working
 
 ---
 
-## 🚀 Quick Start (30 seconds)
+## What It Does
+
+AI_SYNAPSE is a CLI coding assistant (like Claude Code or Cursor) that:
+
+- **Reads, edits, and creates files** using built-in tools
+- **Runs bash commands** with permission checks
+- **Searches your codebase** with glob and grep
+- **Routes to multiple AI providers** with automatic fallback
+- **Remembers your projects** across sessions
+- **Auto-detects context** (Python, frontend, database, etc.)
+
+It works with **free models** — no API keys required if you have [Kilo CLI](https://kilo.ai) or [Ollama](https://ollama.ai) installed.
+
+---
+
+## Installation
+
+### Prerequisites
+
+- Python 3.10+
+- At least one of:
+  - [Kilo CLI](https://kilo.ai) (free, recommended) — `brew install kiloai/tap/kilo && kilo auth`
+  - [Ollama](https://ollama.ai) (free, local) — `brew install ollama && ollama pull qwen2.5-coder:7b`
+  - API key for Groq, Gemini, OpenRouter, or Kimi (optional)
+
+### Setup
 
 ```bash
-cd ~/Documents/AI_PROJS/AI_SYNAPSE
+# Clone
+git clone https://github.com/niranjanshankarananda-prop/AI_SYNAPSE.git
+cd AI_SYNAPSE
+
+# Install dependencies
 pip install -r requirements.txt
 
-# Option 1: Beautiful TUI (like Kilo)
-./synapse_tui.py
+# First run (creates ~/.synapse/ config)
+python3 synapse.py
+```
 
-# Option 2: Simple CLI
-./synapse.py
+On first run, it creates:
+```
+~/.synapse/
+  config.yaml    # Provider settings, priorities
+  carl/          # Context-aware rules
+  memory/        # Project knowledge
+  skills/        # TDD, debugging workflows
+  cache/         # Response cache
+  sessions/      # Saved conversations
+```
+
+### Optional: Set API Keys
+
+```bash
+# Any of these (all optional if Kilo/Ollama available)
+export KIMI_API_KEY='your-key'          # https://platform.moonshot.cn
+export GROQ_API_KEY='gsk_...'           # https://console.groq.com
+export GEMINI_API_KEY='...'             # https://aistudio.google.com
+export OPENROUTER_API_KEY='sk-or-...'   # https://openrouter.ai
 ```
 
 ---
 
-## ✨ What Makes This Special
+## Usage
 
-### Compared to Kilo/Kimi:
-| Feature | Kilo | AI_SYNAPSE |
-|---------|------|-----------|
-| **Multi-line input** | ✅ Yes | ✅ Yes |
-| **Beautiful UI** | ✅ Yes | ✅ **TUI version** |
-| **Provider fallback** | ❌ No | ✅ **Auto-switches if Kilo fails** |
-| **Project memory** | ❌ No | ✅ **Remembers your projects** |
-| **Context rules** | ❌ No | ✅ **CARL auto-detects context** |
-| **Skills** | ❌ No | ✅ **TDD, Debugging workflows** |
-| **Web search** | ❌ No | ✅ **Built-in DuckDuckGo** |
-| **Session save** | ❌ No | ✅ **Save/resume conversations** |
-| **Response cache** | ❌ No | ✅ **Saves tokens/money** |
-
-### The Core Idea
-
-**You type like normal** (just like Kilo), but Synapse:
-1. **Adds intelligent rules** based on what you're doing
-2. **Remembers your projects** across sessions
-3. **Falls back automatically** if a provider fails
-4. **Shows beautiful UI** with status indicators
-
----
-
-## 📦 Two Interfaces
-
-### 1. TUI (Terminal User Interface) — Recommended
+### Single Command
 
 ```bash
-./synapse_tui.py
+# Ask a question
+python3 synapse.py "read main.py and explain what it does"
+
+# Auto-approve tool calls (no confirmation prompts)
+python3 synapse.py "find all TODO comments in the codebase" --yes
+
+# Use a star command for specific mode
+python3 synapse.py "*debug why is the login returning 500?"
 ```
 
-**Looks like this:**
-```
-╔══════════════════════════════════════════════════════════════════╗
-║ ⚡ AI_SYNAPSE v0.3.0                                              ║
-║ Multi-Provider • CARL Intelligence • Persistent Memory          ║
-╠══════════════════════════════════════════════════════════════════╣
-║                                                                  ║
-║ 👤 You                                                           ║
-║ *dev fix the python bug in auth.py                              ║
-║                                                                  ║
-║ ⚙️ CARL                                                          ║
-║ Mode: *dev                                                       ║
-║ Context: python, security, api                                  ║
-║                                                                  ║
-║ 🤖 Assistant                                                     ║
-║ I'll help you fix the bug. Let me read the file first...       ║
-║                                                                  ║
-╠══════════════════════════════════════════════════════════════════╣
-║ 📡 kilo/kimi-k2.5:free │ 💾 Context: 23% │ 📁 myapp │ 🧠 Memory: ✓ ║
-╚══════════════════════════════════════════════════════════════════╝
-
-You: _
-```
-
-**Features:**
-- ✅ Beautiful panel-based UI
-- ✅ Color-coded messages
-- ✅ Status bar (model, context, project, memory)
-- ✅ Side panel with commands
-- ✅ Multi-line input
-- ✅ All Synapse features
-
-**Commands:**
-```
-/model 2                    # Switch to model #2
-/models                     # List all models
-/clear                      # Clear chat
-/compact                    # Summarize context
-/save                       # Save session
-/memory                     # Show project memory
-/remember "Uses FastAPI"    # Add to memory
-/search "Python 3.13"       # Web search
-/help                       # Show all commands
-/exit                       # Quit
-```
-
-### 2. Simple CLI
+### Interactive Mode
 
 ```bash
-./synapse.py
+python3 synapse.py
 ```
 
-**For:** Scripts, piping, quick one-liners
+```
+You: read core/tools.py and tell me what tools are available
+  [kilo/moonshotai/kimi-k2.5:free]
+  [tool] read({'file_path': 'core/tools.py'})
+  [ok] ...
+
+The following tools are available:
+- read: Read file contents with line numbers
+- edit: Find-and-replace text in files
+- write: Create or overwrite files
+- bash: Execute shell commands
+- glob: Find files by pattern
+- grep: Search file contents with regex
+
+You: /exit
+```
+
+### Commands
+
+| Command | Description |
+|---------|-------------|
+| `/help` | Show all commands |
+| `/save` | Save current session |
+| `/load <id>` | Resume a saved session |
+| `/sessions` | List saved sessions |
+| `/compact` | Summarize old messages (free up context) |
+| `/clear` | Clear conversation |
+| `/stats` | Show context usage and cache stats |
+| `/search <query>` | Search the web |
+| `/cache` | Show cache stats |
+| `/cache clear` | Clear response cache |
+| `exit` | Quit and save |
+
+### Star Commands
+
+Start your message with a star command to set the mode:
+
+| Command | Mode | Best For |
+|---------|------|----------|
+| `*dev` | Development | Writing code, minimal changes |
+| `*debug` | Debugging | Systematic problem solving |
+| `*plan` | Planning | Exploring options first |
+| `*review` | Review | Security and performance checks |
+| `*explain` | Teaching | Detailed explanations with examples |
+| `*brief` | Concise | Bullet points only |
+| `*test` | Testing | Writing tests |
+
+### CLI Flags
 
 ```bash
-# Single message
-./synapse.py "explain Python decorators"
+python3 synapse.py --help
 
-# With star command
-./synapse.py "*dev fix the auth bug"
-
-# Web search
-./synapse.py --search "Python 3.13 features"
-
-# Remember project info
-./synapse.py --remember "Uses FastAPI + Pydantic v2"
+# Key flags:
+python3 synapse.py "message"            # Single message
+python3 synapse.py --yes "message"      # Auto-approve tools
+python3 synapse.py --verbose "message"  # Debug logging
+python3 synapse.py --remember "info"    # Save to project memory
+python3 synapse.py --memory             # Show project memory
+python3 synapse.py --search "query"     # Web search
+python3 synapse.py --config             # Show config
+python3 synapse.py --version            # Show version
 ```
 
 ---
 
-## 🎯 Key Features
+## How It Works
 
-### 1. Future-Proof Provider Fallback
+### Agentic Tool Loop
 
-**Problem:** Kilo might remove free models tomorrow
+When you ask a question, AI_SYNAPSE runs an agentic loop:
 
-**Solution:** Automatic fallback chain
 ```
-Your Request
-    ↓
-Kilo (Kimi K2.5) — FREE ← Uses this first
-    ↓ (if rate limited)
-Groq (Llama 70B) — FREE ← Falls back here
-    ↓ (if fails)
-Gemini (2.5 Flash) — FREE ← Then here
-    ↓ (if all fail)
-Kimi (paid) — Your backup ← Ultimate fallback
-```
-
-You never get stuck!
-
-### 2. CARL Intelligence
-
-**Auto-detects what you're doing:**
-```
-You: fix the python bug in auth.py
-    ↓
-CARL detects: "python" + "bug" + "auth"
-    ↓
-Loads: PYTHON + DEBUGGING + SECURITY rules
+User message
+    |
+    v
+Send to AI (with tool schemas)
+    |
+    v
+AI responds with text or tool calls
+    |
+    +-- Text? --> Display to user. Done.
+    |
+    +-- Tool calls? --> Execute tools --> Send results back to AI --> Repeat
 ```
 
-**Star commands for specific modes:**
-- `*dev` — Code-focused, minimal changes
-- `*debug` — Systematic debugging
-- `*plan` — Explores options first
-- `*review` — Security & performance checks
-- `*explain` — Teaching with examples
-- `*brief` — Bullet points only
+The AI can chain multiple tool calls to complete complex tasks:
 
-### 3. Project Memory
+```
+You: "find all Python files with TODO comments and list them"
 
-**Remembers across sessions:**
-```bash
-# Tell it once
-./synapse.py --remember "This is a FastAPI + PostgreSQL app"
-
-# 1 week later...
-./synapse.py "add user authentication"
-# → Knows to use FastAPI + async + PostgreSQL automatically
+  [tool] glob({'pattern': '*.py'})         # Find Python files
+  [tool] grep({'pattern': 'TODO'})          # Search for TODOs
+  [kilo/moonshotai/kimi-k2.5:free]
+  Found 3 files with TODO comments:
+  - core/router.py:45: TODO: add retry logic
+  - providers/kilo.py:195: TODO: implement streaming
+  ...
 ```
 
-### 4. Skills
+### Built-in Tools
 
-**Structured workflows:**
+| Tool | Description |
+|------|-------------|
+| `read` | Read file contents with line numbers |
+| `edit` | Find-and-replace text in files |
+| `write` | Create new files or overwrite existing |
+| `bash` | Execute shell commands (with permission checks) |
+| `glob` | Find files by pattern (e.g., `**/*.py`) |
+| `grep` | Search file contents with regex |
 
-**TDD Skill:**
+Dangerous bash commands (rm, git push, docker, sudo) require user confirmation unless `--yes` is passed.
+
+### Provider Fallback
+
+AI_SYNAPSE tries providers in priority order. If one fails, it automatically falls back to the next:
+
 ```
-You: using TDD, add payment processing
-🛠️ Skills: tdd
-Assistant:
-Step 1: RED - Write failing test
-[shows test code]
-Run it? (yes): 
-
-Step 2: GREEN - Make it pass
-[shows minimal code]
-Run test? (yes):
-
-Step 3: REFACTOR - Clean up
-✅ TDD complete!
-```
-
-### 5. Session Management
-
-```bash
-# In TUI
-You: /save
-💾 Session saved: 20260301_143022
-
-# Resume later
-You: /sessions
-💾 Saved Sessions:
-  1. 20260301_143022 - "build REST API with auth"
-  
-You: /load 20260301_143022
-📂 Loaded session with 12 messages
+Priority 1: Kilo CLI     (free, uses kimi-k2.5)
+Priority 2: Kimi API     (paid, needs KIMI_API_KEY)
+Priority 3: Ollama       (free, local, needs ollama running)
+Priority 4: OpenRouter   (free tier, needs OPENROUTER_API_KEY)
+Priority 5: Groq         (free tier, needs GROQ_API_KEY)
+Priority 6: Gemini       (free tier, needs GEMINI_API_KEY)
 ```
 
-### 6. Web Search
+Change priorities in `~/.synapse/config.yaml`.
+
+### CARL (Context-Aware Rule Loading)
+
+CARL automatically detects what you're working on and loads relevant rules:
+
+```
+You: "fix the SQLAlchemy migration bug"
+  Context: python, database     # Auto-detected
+  Skills: debugging             # Auto-loaded
+```
+
+Domains: python, frontend, database, api, deploy, security.
+
+### Project Memory
 
 ```bash
-./synapse.py --search "Python 3.13 features"
-# Or in TUI:
-You: /search latest FastAPI best practices
+# Remember project context
+python3 synapse.py --remember "This project uses FastAPI + PostgreSQL"
+
+# Memory persists across sessions
+python3 synapse.py "add user auth"
+# AI already knows to use FastAPI + PostgreSQL
+
+# View memory
+python3 synapse.py --memory
+
+# Forget
+python3 synapse.py --forget "FastAPI"
 ```
 
 ---
 
-## 📚 Documentation
+## Configuration
 
-| Document | What It Covers |
-|----------|----------------|
-| **[TUI_GUIDE.md](TUI_GUIDE.md)** | Beautiful interface guide |
-| **[USAGE_GUIDE.md](USAGE_GUIDE.md)** | Complete feature reference |
-| **[QUICKSTART.md](QUICKSTART.md)** | 5-minute quick start |
-| **[PRODUCT_PLAN.md](PRODUCT_PLAN.md)** | Full specification |
-| **[ARCHITECTURE.md](ARCHITECTURE.md)** | Technical design |
-
----
-
-## 🔧 Configuration
-
-Config location: `~/.synapse/config.yaml`
+Config file: `~/.synapse/config.yaml`
 
 ```yaml
 providers:
   kilo:
     enabled: true
-    priority: 1  # Tried first
-  groq:
+    priority: 1
+    models:
+    - name: kilo/moonshotai/kimi-k2.5:free
+      default: true
+  kimi:
     enabled: true
     priority: 2
-    api_key: ${GROQ_API_KEY}
-  gemini:
+    api_key: null  # Set via KIMI_API_KEY env var
+    models:
+    - name: kimi-k2.5
+      default: true
+  ollama:
     enabled: true
     priority: 3
-    api_key: ${GEMINI_API_KEY}
+    base_url: http://localhost:11434
+    models:
+    - name: qwen2.5-coder:7b
+      default: true
 
+# Subsystems
 carl:
   enabled: true
-
 memory:
   enabled: true
-  location: ~/.synapse/memory
-
-skills:
-  enabled: true
+conversation:
+  max_tokens: 128000
+  compact_threshold: 0.75
 ```
 
----
+### Provider Setup
 
-## 🎓 Usage Examples
-
-### Development Workflow
-
+**Kilo CLI (recommended, free):**
 ```bash
-# Start TUI
-./synapse_tui.py
-
-You: *dev create a REST API with FastAPI
-✨ Mode: *dev
-🎯 Context: python, api
-
-# CARL automatically loads FastAPI rules
-# Memory loads if you've used FastAPI before
-# Skills auto-detect if needed
-
-You: /save
-💾 Session saved
-
-# Later, in different terminal
-./synapse_tui.py
-You: /load <session_id>
-📂 Resumed where you left off
+brew install kiloai/tap/kilo
+kilo auth
+kilo models  # verify
 ```
 
-### Debugging Workflow
-
+**Ollama (free, local):**
 ```bash
-./synapse_tui.py
-
-You: *debug why is login returning 500?
-✨ Mode: *debug
-🎯 Context: debugging, security, api
-
-# Assistant follows systematic debugging:
-# 1. Gather context
-# 2. Form hypothesis
-# 3. Suggest tests
-# 4. Root cause analysis
+brew install ollama
+ollama serve &
+ollama pull qwen2.5-coder:7b
 ```
 
-### Research Workflow
-
+**Kimi API (paid backup):**
 ```bash
-# Search for current info
-You: /search "Python 3.13 release date"
-🔍 [shows search results]
-
-# Then ask follow-up
-You: what are the main features?
-Assistant: [responds with context from search]
+export KIMI_API_KEY='your-key'  # https://platform.moonshot.cn
 ```
 
 ---
 
-## 📊 Project Stats
+## Project Structure
 
-- **26 files** created
-- **~6,000 lines** of code
-- **67KB** of documentation
-- **4 AI providers** integrated
-- **10 core modules**
-- **6 CARL domains**
-- **2 built-in skills**
-
----
-
-## 🎯 Choose Your Interface
-
-| Use Case | Use This |
-|----------|----------|
-| **Daily development** | `./synapse_tui.py` (beautiful, interactive) |
-| **Quick questions** | `./synapse.py "query"` (fast, simple) |
-| **Scripts/piping** | `./synapse.py` (CLI mode) |
-| **Learning/exploring** | `./synapse_tui.py` (rich output) |
-
----
-
-## 🚀 Start Now
-
-```bash
-# 1. Install
-cd ~/Documents/AI_PROJS/AI_SYNAPSE
-pip install -r requirements.txt
-
-# 2. Launch TUI (recommended)
-./synapse_tui.py
-
-# 3. Start chatting!
-You: *dev help me build an API
+```
+AI_SYNAPSE/
+  synapse.py              # CLI entry point
+  synapse_tui.py          # TUI (terminal UI) entry point
+  requirements.txt        # Python dependencies
+  core/
+    agent_loop.py         # Agentic tool loop
+    agent_response.py     # Response types (text, tool_call, done)
+    config.py             # Configuration management
+    conversation.py       # Conversation history + context window
+    router.py             # Provider routing with fallback
+    tools.py              # Built-in tools (read, edit, write, bash, glob, grep)
+    carl.py               # Context-aware rule loading
+    memory.py             # Project memory persistence
+    skills.py             # Skill system (TDD, debugging)
+    cache.py              # Response caching
+    session_manager.py    # Session save/load
+    web_search.py         # DuckDuckGo web search
+  providers/
+    base.py               # Provider base class + error types
+    kilo.py               # Kilo CLI provider (prompt-based tool calling)
+    kimi.py               # Kimi/Moonshot API (native function calling)
+    ollama.py             # Ollama local models (native function calling)
+    groq.py               # Groq API (native function calling)
+    gemini.py             # Google Gemini API (native function calling)
+    openrouter.py         # OpenRouter API (native function calling)
 ```
 
-**Welcome to the future of AI-assisted development!** 🎉
-
 ---
 
-## 💡 Pro Tips
+## Troubleshooting
 
-1. **Use the TUI for serious work** — It's worth the extra typing
-2. **Set memory once per project** — Use `/remember`
-3. **Use star commands** — `*dev`, `*debug`, `*plan` for better results
-4. **Don't worry about Kilo failing** — Fallback is automatic
-5. **Save important sessions** — Use `/save` liberally
+**"No providers available"**
+- Install Kilo CLI: `brew install kiloai/tap/kilo && kilo auth`
+- Or start Ollama: `ollama serve` then `ollama pull qwen2.5-coder:7b`
+- Or set an API key: `export GROQ_API_KEY='...'`
 
----
+**"Kilo authentication required"**
+- Run `kilo auth` to authenticate.
 
-**Built with ❤️ for developers who want the best AI experience.**
+**"Ollama not running"**
+- Start it: `ollama serve`
 
-*Version: 0.3.0* | *Status: Production Ready*
+**Model gives wrong answers / doesn't use tools**
+- Smaller models (qwen2.5-coder:7b) may skip tool calls. Use Kilo (kimi-k2.5) for better results.
+- Pass `--yes` to auto-approve tool calls.
+
+**Context window full**
+- Use `/compact` to summarize old messages.
+- Use `/clear` to start fresh.
+- Auto-compact triggers at 75% usage.
+
+**Verbose logging**
+- `python3 synapse.py --verbose "your message"` to see debug output.

@@ -1,208 +1,72 @@
-# AI_SYNAPSE — 5-Minute Quick Start
+# Quick Start
 
-> ⚡ Get started in 5 minutes or less
-
----
-
-## 🚀 Step 1: Install (30 seconds)
+## 1. Install
 
 ```bash
-cd ~/Documents/AI_PROJS/AI_SYNAPSE
+git clone https://github.com/niranjanshankarananda-prop/AI_SYNAPSE.git
+cd AI_SYNAPSE
 pip install -r requirements.txt
 ```
 
----
+## 2. Set Up a Provider
 
-## 🎯 Step 2: First Run (30 seconds)
-
-```bash
-./synapse.py
-```
-
-You'll see:
-```
-👋 Welcome to AI_SYNAPSE!
-
-🔧 Setting up your AI assistant...
-
-✅ Configuration: ~/.synapse/config.yaml
-✅ CARL rules: ~/.synapse/carl/
-✅ Skills: ~/.synapse/skills/
-✅ Memory: ~/.synapse/memory/
-✅ Cache: ~/.synapse/cache/
-✅ Sessions: ~/.synapse/sessions/
-```
-
----
-
-## 💬 Step 3: Start Chatting (Instant!)
+Pick at least one:
 
 ```bash
-./synapse.py
+# Option A: Kilo CLI (free, recommended)
+brew install kiloai/tap/kilo
+kilo auth
+
+# Option B: Ollama (free, local)
+brew install ollama
+ollama serve &
+ollama pull qwen2.5-coder:7b
+
+# Option C: API key (any of these)
+export GROQ_API_KEY='gsk_...'
+export GEMINI_API_KEY='...'
+export KIMI_API_KEY='...'
 ```
 
-Type naturally:
-```
-You: explain Python decorators with examples
-Assistant: [streams detailed response]
-
-You: *dev create a function to validate emails
-✨ Mode: *dev
-🎯 Context: python
-Assistant: [code-focused response]
-
-You: /exit
-👋 Session saved. Goodbye!
-```
-
----
-
-## 📖 Common Commands
-
-### Star Commands (Start your message with)
-- `*dev` — Development mode (code-focused)
-- `*debug` — Debugging mode (systematic problem solving)
-- `*plan` — Planning mode (explores options first)
-- `*review` — Code review mode
-- `*explain` — Teaching mode
-- `*brief` — Concise bullet points only
-
-### Slash Commands (Type at prompt)
-- `/save` — Save conversation
-- `/sessions` — List saved sessions
-- `/load <id>` — Load a session
-- `/compact` — Summarize old messages
-- `/clear` — Start fresh
-- `/stats` — Show token usage
-- `/search <query>` — Web search
-- `/help` — Show all commands
-- `exit` — Quit
-
----
-
-## 💾 Remember Your Projects
+## 3. Run
 
 ```bash
-# Tell Synapse about your project once
-./synapse.py --remember "This is a FastAPI + PostgreSQL app"
-./synapse.py --remember "Uses SQLAlchemy 2.0 with async"
+# Single question
+python3 synapse.py "read requirements.txt and count the lines" --yes
 
-# Now all commands know this context automatically
-./synapse.py "add user authentication"
-# → Knows to use FastAPI + async + SQLAlchemy 2.0
+# Interactive mode
+python3 synapse.py
 ```
 
----
+## 4. What You'll See
 
-## 🔍 Search the Web
-
-```bash
-# Inside interactive mode
-You: /search latest Python 3.13 features
-🔍 Searching...
-[shows search results]
+```
+  [tool] read({'file_path': 'requirements.txt'})
+  [ok]    1| # AI_SYNAPSE — Dependencies ...
+  [kilo/moonshotai/kimi-k2.5:free]
+The file requirements.txt has 29 lines.
 ```
 
-Or one-shot:
-```bash
-./synapse.py --search "Python 3.13 features"
-```
+The AI reads files, runs commands, and answers based on actual results.
 
----
+## 5. Key Commands
 
-## 🛠️ Use Skills
+In interactive mode:
 
-```bash
-# TDD skill auto-loads when you mention it
-./synapse.py "using TDD, add a payment module"
-🛠️ Skills: tdd
-Assistant: 
-Let's follow TDD:
-1. RED: Write failing test
-2. GREEN: Make it pass
-3. REFACTOR: Clean up
-...
-```
+- `/help` — show all commands
+- `/save` — save session
+- `/search <query>` — web search
+- `/compact` — free up context
+- `exit` — quit
 
----
+Star commands (prefix your message):
 
-## 📊 Check Status
+- `*dev` — code-focused mode
+- `*debug` — systematic debugging
+- `*plan` — explore options first
 
-```bash
-# In interactive mode
-You: /stats
-📊 Session Stats:
-   Session ID: 20260301_143022
-   Messages: 12 total
-   Context: 23% used
-   Remaining: 98,432 tokens
+## 6. Configuration
 
-💾 Cache Stats:
-   Entries: 15
-   Size: 0.5 MB
-```
+Edit `~/.synapse/config.yaml` to change provider priorities, models, or subsystem settings.
 
----
-
-## 🎓 Learn More
-
-```bash
-# Complete guide
-cat USAGE_GUIDE.md
-
-# Product specification
-cat PRODUCT_PLAN.md
-
-# Technical architecture
-cat ARCHITECTURE.md
-```
-
----
-
-## ⚡ Pro Tips
-
-1. **Use Star Commands** for consistent responses
-   - `*dev` when writing code
-   - `*debug` when fixing bugs
-   - `*plan` when designing architecture
-
-2. **Remember Once, Use Forever**
-   - `--remember "Uses FastAPI"` saves for entire project
-
-3. **Save Important Sessions**
-   - `/save` after complex work
-   - `/load <id>` to resume later
-
-4. **Compact Regularly**
-   - `/compact` every ~20 messages
-   - Keeps context window healthy
-
-5. **Search First**
-   - `/search` for current information
-   - No API key needed!
-
----
-
-## ❓ Need Help?
-
-```bash
-# Show all options
-./synapse.py --help
-
-# Show commands in app
-You: /help
-
-# Check configuration
-./synapse.py --config
-```
-
----
-
-## 🎉 You're Ready!
-
-Start chatting:
-```bash
-./synapse.py
-```
-
-**Welcome to AI_SYNAPSE!** 🚀
+Full documentation: [README.md](README.md)
