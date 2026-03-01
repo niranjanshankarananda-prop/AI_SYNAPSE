@@ -142,10 +142,31 @@ class OllamaProvider(Provider):
         model = self.get_model(model)
         client = await self._get_client()
 
-        # Ollama uses same format as OpenAI for tools
+        # Ollama expects tool_call arguments as dicts, not JSON strings
+        # (OpenAI uses strings, Ollama uses dicts). Convert before sending.
+        fixed_messages = []
+        for msg in messages:
+            if msg.get("role") == "assistant" and msg.get("tool_calls"):
+                msg = dict(msg)
+                fixed_tcs = []
+                for tc in msg["tool_calls"]:
+                    tc = dict(tc)
+                    if "function" in tc:
+                        func = dict(tc["function"])
+                        args = func.get("arguments", {})
+                        if isinstance(args, str):
+                            try:
+                                func["arguments"] = json.loads(args)
+                            except json.JSONDecodeError:
+                                pass
+                        tc["function"] = func
+                    fixed_tcs.append(tc)
+                msg["tool_calls"] = fixed_tcs
+            fixed_messages.append(msg)
+
         payload = {
             "model": model,
-            "messages": messages,
+            "messages": fixed_messages,
             "stream": False,
             "tools": tools,
             "options": {"temperature": temperature}

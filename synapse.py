@@ -273,7 +273,8 @@ async def process_ai_message(
         "You are AI_SYNAPSE, an intelligent coding assistant. "
         "You can read files, edit code, run commands, and search for files. "
         "Use the provided tools to help the user with their coding tasks. "
-        "Always read files before editing them. Think step by step."
+        "Always read files before editing them. Think step by step. "
+        "Use relative file paths (e.g., 'requirements.txt', 'src/main.py') — not placeholder paths."
     ]
     if carl_result.rules:
         system_parts.append(carl.format_rules_for_prompt(carl_result.rules))
