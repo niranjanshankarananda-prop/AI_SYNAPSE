@@ -1,0 +1,185 @@
+"""
+AI_SYNAPSE — Ollama Provider
+
+Provider for Ollama — run models locally, zero cost, works offline.
+"""
+
+import json
+import logging
+from typing import AsyncIterator, Optional
+
+import httpx
+
+from providers.base import (
+    Provider,
+    ProviderConfig,
+    ProviderError,
+    ServiceUnavailableError
+)
+from core.agent_response import AgentResponse, ResponseType, ToolCall
+
+logger = logging.getLogger(__name__)
+
+
+class OllamaProvider(Provider):
+    """
+    Provider for Ollama local models.
+
+    Ollama runs models locally with zero API costs.
+    Supports function calling with compatible models.
+
+    Install: https://ollama.ai
+
+    Models:
+    - qwen2.5-coder:32b (coding optimized)
+    - llama3.3:70b (general purpose)
+    - deepseek-coder-v2 (coding)
+    """
+
+    def __init__(self, config: ProviderConfig):
+        super().__init__(config)
+        self.base_url = config.base_url or "http://localhost:11434"
+        self.client: Optional[httpx.AsyncClient] = None
+
+    @property
+    def default_model(self) -> str:
+        return "qwen2.5-coder:32b"
+
+    @property
+    def supports_function_calling(self) -> bool:
+        return True
+
+    async def _get_client(self) -> httpx.AsyncClient:
+        """Get or create HTTP client."""
+        if self.client is None:
+            self.client = httpx.AsyncClient(
+                base_url=self.base_url,
+                timeout=self.config.timeout
+            )
+        return self.client
+
+    async def check_available(self) -> bool:
+        """Check if Ollama is running locally."""
+        try:
+            client = await self._get_client()
+            response = await client.get("/api/tags")
+
+            if response.status_code == 200:
+                data = response.json()
+                models = [m["name"] for m in data.get("models", [])]
+                if models:
+                    self._set_available()
+                    logger.info(f"Ollama available with models: {models}")
+                    return True
+                else:
+                    self._set_error("Ollama running but no models installed")
+                    return False
+            else:
+                self._set_error(f"Ollama error: {response.status_code}")
+                return False
+
+        except httpx.ConnectError:
+            self._set_error("Ollama not running (connection refused)")
+            return False
+        except Exception as e:
+            self._set_error(f"Ollama check failed: {e}")
+            return False
+
+    async def complete(
+        self,
+        messages: list[dict],
+        model: Optional[str] = None,
+        stream: bool = True,
+        temperature: float = 0.7,
+        max_tokens: Optional[int] = None,
+        **kwargs
+    ) -> AsyncIterator[str]:
+        """Generate completion using Ollama API."""
+        model = self.get_model(model)
+        client = await self._get_client()
+
+        payload = {
+            "model": model,
+            "messages": messages,
+            "stream": stream,
+            "options": {"temperature": temperature}
+        }
+        if max_tokens:
+            payload["options"]["num_predict"] = max_tokens
+
+        try:
+            async with client.stream("POST", "/api/chat", json=payload) as response:
+                if response.status_code != 200:
+                    text = await response.aread()
+                    raise ServiceUnavailableError(f"Ollama error: {text}")
+
+                async for line in response.aiter_lines():
+                    if not line.strip():
+                        continue
+                    try:
+                        chunk = json.loads(line)
+                        content = chunk.get("message", {}).get("content", "")
+                        if content:
+                            yield content
+                        if chunk.get("done"):
+                            break
+                    except json.JSONDecodeError:
+                        continue
+        except httpx.ConnectError:
+            raise ServiceUnavailableError("Ollama not running")
+
+    async def complete_with_tools(
+        self,
+        messages: list[dict],
+        tools: list[dict],
+        model: Optional[str] = None,
+        stream: bool = False,
+        temperature: float = 0.7,
+        max_tokens: Optional[int] = None,
+        **kwargs
+    ) -> AsyncIterator[AgentResponse]:
+        """Generate completion with tool calling (Ollama format)."""
+        model = self.get_model(model)
+        client = await self._get_client()
+
+        # Ollama uses same format as OpenAI for tools
+        payload = {
+            "model": model,
+            "messages": messages,
+            "stream": False,
+            "tools": tools,
+            "options": {"temperature": temperature}
+        }
+        if max_tokens:
+            payload["options"]["num_predict"] = max_tokens
+
+        try:
+            response = await client.post("/api/chat", json=payload)
+
+            if response.status_code != 200:
+                raise ServiceUnavailableError(f"Ollama error: {response.text}")
+
+            data = response.json()
+            message = data.get("message", {})
+
+            if message.get("tool_calls"):
+                tool_calls = []
+                for tc in message["tool_calls"]:
+                    func = tc.get("function", {})
+                    tool_calls.append(ToolCall(
+                        name=func.get("name", ""),
+                        arguments=func.get("arguments", {})
+                    ))
+                yield AgentResponse(
+                    type=ResponseType.TOOL_CALL,
+                    tool_calls=tool_calls,
+                    finish_reason="tool_calls"
+                )
+            else:
+                content = message.get("content", "")
+                if content:
+                    yield AgentResponse(type=ResponseType.TEXT, text=content)
+                yield AgentResponse(type=ResponseType.DONE, finish_reason="stop")
+
+        except httpx.ConnectError:
+            raise ServiceUnavailableError("Ollama not running")
